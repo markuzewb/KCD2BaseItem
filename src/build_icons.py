@@ -33,7 +33,9 @@ def main():
     if os.path.isdir(SRC):
         for fn in os.listdir(SRC):
             if fn.endswith("_icon_page1.webp"):
-                files[fn[: -len("_icon_page1.webp")]] = os.path.join(SRC, fn)
+                stem = fn[: -len("_icon_page1.webp")]
+                files[stem] = os.path.join(SRC, fn)
+
     ids = sorted(files)
     if not ids:
         print("нет иконок в", SRC)
@@ -62,6 +64,15 @@ def main():
         s = i // SHEET_ITEMS
         k = i % SHEET_ITEMS
         index[icon_id] = [s, (k % COLS) * CELL, (k // COLS) * CELL]
+
+    # В наборе есть файлы, отличающиеся от IconId только регистром
+    # (trafficCone vs TrafficCone, tuniclong03_... vs TunicLong03_...).
+    # Добавляем алиас в нижнем регистре, чтобы такие иконки не терялись.
+    lower_alias = {}
+    for icon_id in ids:
+        lower_alias.setdefault(icon_id.lower(), index[icon_id])
+    for low, pos in lower_alias.items():
+        index.setdefault(low, pos)
 
     json.dump({"cell": CELL, "sheets": sheets, "icons": index},
               open(OUTJSON, "w", encoding="utf-8"), ensure_ascii=False,
