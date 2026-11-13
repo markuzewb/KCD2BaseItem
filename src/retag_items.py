@@ -403,13 +403,20 @@ def sub_bow(it):
 
 
 def sub_ammo(it):
+    # внутреннее имя надёжнее подписи: у bolt_* в локализации бывает «стрела»
     nm = bare_name(it).lower()
     ru = (it.get("ru") or "").lower()
-    if "arrow" in nm or "стрела" in ru or "стрел" in ru:
-        return "arrows"
-    if "bolt" in nm or "болт" in ru:
+    if "bolt" in nm:
         return "bolts"
-    if "shot" in nm or "ball" in nm or "pellet" in nm or "дроб" in ru or "пуля" in ru:
+    if "arrow" in nm:
+        return "arrows"
+    if re.search(r"shot|ball|pellet", nm):
+        return "shot"
+    if re.search(r"болт", ru):
+        return "bolts"
+    if re.search(r"стрел", ru):
+        return "arrows"
+    if re.search(r"дроб|пуля|картечь", ru):
         return "shot"
     return "other"
 
@@ -538,7 +545,7 @@ def sub_material(it):
         if re.match(r"steel|iron|copper|tin|bronze|brass|silver|gold", body):
             return "ingot"
         return "other"
-    if re.search(r"\bподков|horseshoe", txt):
+    if re.search(r"подков|horseshoe", txt):
         return "horseshoe"
     if re.search(r"\bгард|\bguard", txt):
         return "guard"
@@ -578,6 +585,10 @@ def sub_misc(it):
     # ключи и отмычки
     if re.search(r"ключ|отмычк|\bkey\b|lockpick", txt + " " + nm):
         return 10, ("lockpick" if re.search(r"отмычк|lockpick", txt + nm) else "key")
+
+    # игральные кости
+    if re.search(r"\bdie\b|dice|игральн.*кост|кость.*игральн", txt):
+        return 7, "die"
 
     # травы
     if nm.startswith("herb") or re.search(r"трав[аыу]|herb", txt):
@@ -727,6 +738,11 @@ def sub_misc_extra(it):
     nm = bare_name(it).lower()
     txt = low + " " + nm
 
+    if re.search(r"памятн\w* монет|commemorative", txt):
+        return 9, "valuable"
+
+    if re.search(r"подков|horseshoe", txt):
+        return 8, "horseshoe"
     if re.search(r"мешок|sack|bundle|свёрток|связк|бурдюк|waterskin", txt):
         if re.search(r"мук|соль|круп|flour|salt|grain", txt):
             return 12, "ingredient"
@@ -753,6 +769,8 @@ def sub_misc_extra(it):
         return 12, "quest"
     if re.search(r"мрамор|статуэтк|статуя|statue", txt):
         return 9, "valuable"
+    if re.search(r"подков|horseshoe", txt):
+        return 8, "horseshoe"
     if re.search(r"мазь|ointment|salve|смалец", txt):
         return 11, "care"
     if re.search(JUNK, txt):
@@ -782,6 +800,8 @@ def sub_misc_extra(it):
     if re.search(r"сломанный (меч|топор)|обломок|broken (sword|axe)|weapon stub",
                  txt):
         return 8, "other"
+    if re.search(r"памятн.*монет|commemorative", txt):
+        return 9, "valuable"
     if re.search(r"гвозд|nail|скоб|креп|веревк|rope|фитил|wick|порох|"
                  r"gunpowder|уголь|charcoal|кора|bark|деготь|tar\b|квасц|alum|"
                  r"монет|coin", txt):
@@ -810,6 +830,12 @@ def retag(it):
     # служебные/тестовые записи не должны попадать в игровые разделы
     if it.get("src") == "test" or nm.startswith("test"):
         return 12, "junk"
+
+    # явные исключения, которые ключевые слова могут утащить не туда
+    if re.search(r"подков|horseshoe", low + " " + nm):
+        return 8, "horseshoe"
+    if re.search(r"памятн\w* монет|commemorative", low + " " + nm):
+        return 9, "valuable"
 
     if c == 0:                       # алхимические основы
         if re.search(r"спирт|spirit", low + " " + nm):
