@@ -166,7 +166,7 @@ TEMPLATE = r"""<!DOCTYPE html>
   --shadow:0 4px 20px rgba(0,0,0,.45);
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;overflow-x:hidden;max-width:100%}
 body{
   background:
     radial-gradient(1200px 600px at 50% -100px, #2b2118 0%, transparent 70%),
@@ -311,8 +311,14 @@ select:focus{border-color:var(--gold-dim)}
 .tag.v{color:var(--blue);border-color:rgba(91,127,168,.3);background:rgba(91,127,168,.1)}
 
 /* ---------- таблица ---------- */
-.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);margin-bottom:60px}
-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.tablewrap{border:1px solid var(--line);border-radius:var(--r);margin-bottom:60px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
+th:nth-child(1),td:nth-child(1){width:auto}
+th:nth-child(2),td:nth-child(2){width:132px}
+th:nth-child(3),td:nth-child(3),
+th:nth-child(4),td:nth-child(4),
+th:nth-child(5),td:nth-child(5),
+th:nth-child(6),td:nth-child(6){width:88px}
 thead th{
   background:var(--panel2);color:var(--muted);font-weight:600;text-align:left;
   padding:11px 12px;border-bottom:1px solid var(--line2);
@@ -333,7 +339,8 @@ td .tin i{position:absolute;width:64px;height:64px;transform-origin:0 0;transfor
   background-position:calc(var(--x) * var(--sc)) calc(var(--y) * var(--sc));
   background-size:calc(1024px * var(--sc)) auto;
   left:-1px;top:-1px;background-repeat:no-repeat}
-td.name{font-weight:500}
+td.name{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td,th{overflow:hidden;text-overflow:ellipsis}
 
 /* ---------- пустой результат ---------- */
 .empty{
@@ -411,6 +418,13 @@ footer{
 }
 footer a{color:var(--muted)}
 
+@media(max-width:760px){
+  .viewtoggle{display:none}
+  table{font-size:12px}
+  thead th,tbody td{padding:7px 6px}
+  .tablewrap table th:nth-child(2),.tablewrap table td:nth-child(2),
+  .tablewrap table th:nth-child(6),.tablewrap table td:nth-child(6){display:none}
+}
 @media(max-width:640px){
   .grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:9px}
   .card{padding:9px;gap:9px}
@@ -866,6 +880,12 @@ $('#sort').onchange=e=>{ st.sort=e.target.value; apply(); };
 $('#per').onchange=e=>{ st.per=parseInt(e.target.value,10); apply(); };
 $('#vGrid').onclick=()=>{ st.view='grid'; $('#vGrid').classList.add('on'); $('#vTable').classList.remove('on'); apply(); };
 $('#vTable').onclick=()=>{ st.view='table'; $('#vTable').classList.add('on'); $('#vGrid').classList.remove('on'); apply(); };
+// на телефоне таблица не помещается — держим карточки
+const mobile = ()=> (window.matchMedia ? window.matchMedia('(max-width:760px)').matches : window.innerWidth <= 760);
+if(mobile()){
+  st.view='grid';
+  $('#vGrid').classList.add('on'); $('#vTable').classList.remove('on');
+}
 // подгрузка при прокрутке (с запасным вариантом, если IO нет)
 if('IntersectionObserver' in window){
   new IntersectionObserver(es=>{
