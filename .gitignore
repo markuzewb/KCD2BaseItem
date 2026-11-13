@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.DS_Store
+
+# сырые иконки — 32 МБ, не нужны для работы сайта и легко скачиваются заново
+data/raw/icons/
+data/raw/icons_data.json
