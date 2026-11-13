@@ -1,8 +1,15 @@
+# Публикация на GitHub Pages.
+#
+# Включается вручную: Settings → Pages → Source: "Deploy from a branch",
+# ветка main, папка /(root). Файл .nojekyll уже в репозитории.
+#
+# Автоматический вариант ниже требует, чтобы Pages был включён и токен
+# рабочего процесса имел pages: write. Если сайт ещё не создан,
+# configure-pages падает с 403 — это ограничение прав приложения,
+# а не ошибка в сайте.
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -23,8 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
