@@ -61,11 +61,38 @@ def build():
     icon_index = json.load(open(os.path.join(ROOT, "data", "icons.json"), encoding="utf-8"))
     icons = icon_index["icons"]
 
+    # IconId в item.json регистрозависим, а в наборе webp встречается иначе
+    # (TrafficCone vs trafficCone). Достраиваем индекс без учёта регистра.
+    _lower = {}
+    for k, v in icons.items():
+        _lower.setdefault(k.lower(), v)
+    icons = dict(icons)
+    for k, v in _lower.items():
+        icons.setdefault(k, v)
+
     # оставляем только используемые иконки, пересобираем компактный индекс
     used = sorted({it["i"] for it in items if it["i"] in icons})
     pos = {name: i for i, name in enumerate(used)}
     icon_map = [icons[n] for n in used]
     icon_name_idx = pos
+
+    # --- добор иконок по родственному IconId ---
+    # у единичных предметов своего IconId нет в наборе webp; берём ближайший
+    # по префиксу (BootWsKnee -> другой BootWsKnee), чтобы не показывать «?»
+    by_prefix = {}
+    for it in items:
+        iid = it["i"]
+        if iid in icon_name_idx:
+            for cut in (6, 5, 4):
+                by_prefix.setdefault(iid[:cut].lower(), iid)
+
+    def _fallback_icon(iid):
+        low = (iid or "").lower()
+        for cut in (6, 5, 4):
+            hit = by_prefix.get(low[:cut])
+            if hit:
+                return icon_name_idx[hit]
+        return -1
 
     # --- склейка одинаковых записей в варианты ---
     # В item.json у одного и того же предмета бывает десятки копий
@@ -92,6 +119,8 @@ def build():
                 if alt["i"] in icon_name_idx:
                     icon_idx = icon_name_idx[alt["i"]]
                     break
+        if icon_idx < 0:
+            icon_idx = _fallback_icon(it["i"])
         rec = [it["n"], it["e"], it["c"], it["s"], it.get("w"), it.get("p"),
                icon_idx, it.get("a"), it["id"]]
         if len(grp) > 1:
