@@ -45,6 +45,24 @@ def js(obj):
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
 
+def unpack_anims(pack):
+    """Развернуть сжатый каталог: словари повторов -> обычные объекты."""
+    ru, de = pack["ru"], pack["desc"]
+    ph, fa = pack["phase"], pack["fam"]
+    fr, tr = pack["frag"], pack["trust"]
+    out = []
+    for row in pack["items"]:
+        num, ru_i, de_i, ph_i, fa_i, fr_i, tr_i, det, clip, cat_id, sub = row
+        fam, fam_ru = fa[fa_i]
+        out.append({
+            "num": num, "ru": ru[ru_i], "desc": de[de_i], "phase": ph[ph_i],
+            "fam": fam, "famRu": fam_ru, "frag": fr[fr_i], "trust": tr[tr_i],
+            "det": det, "clip": clip, "catId": cat_id, "sub": sub,
+            "cat": "", "id": clip,
+        })
+    return out
+
+
 def strip_item(it):
     src = ""
     s = it.get("sources") or []
@@ -100,7 +118,8 @@ def main():
         c.setdefault("en", "")
     cats.sort(key=lambda c: c["id"])
 
-    anims = load("anim_items.json")
+    anims_pack = load("anim_items.json")
+    anims = unpack_anims(anims_pack)
     acats = load("anim_cats.json")
     asubs = load("anim_subs.json")
 
@@ -112,10 +131,16 @@ def main():
                lambda m: "const SUBCATS = " + js(subs) + ";\n", s, count=1, flags=re.S)
 
     # данные анимаций
-    anim_js = ("const ANIMS = " + js(anims) + ";\n"
-               "const ACATS = " + js(acats) + ";\n"
-               "const ASUBS = " + js(asubs) + ";\n"
-               "const ACOUNT = " + str(len(anims)) + ";\n")
+    unpack_js = (
+        "const ANIMS = (()=>{const p=ANIM_PACK,out=[];"
+        "for(const r of p.items){const f=p.fam[r[4]];"
+        "out.push({num:r[0],ru:p.ru[r[1]],desc:p.desc[r[2]],phase:p.phase[r[3]],"
+        "fam:f[0],famRu:f[1],frag:p.frag[r[5]],trust:p.trust[r[6]],det:r[7],"
+        'clip:r[8],catId:r[9],sub:r[10],cat:"",id:r[8]});}return out;})();\n')
+    anim_js = ("const ANIM_PACK = " + js(anims_pack) + ";\n" + unpack_js
+               + "const ACATS = " + js(acats) + ";\n"
+               + "const ASUBS = " + js(asubs) + ";\n"
+               + "const ACOUNT = " + str(len(anims)) + ";\n")
     s = s.replace("const ITEMS = ", anim_js + "const ITEMS = ", 1)
 
     # ---------------------------------------------------------- CSS

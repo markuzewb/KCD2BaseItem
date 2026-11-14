@@ -317,8 +317,37 @@ def main():
         lst = [s for s in lst if s["key"] != "all"] or lst
         out_subs[str(cid)] = lst
 
+    # ------------------------------------------------- сжатие повторов
+    # описания, фазы и семейства повторяются тысячами: держим их словарями
+    def uniq(vals):
+        return sorted(set(vals))
+
+    ru_s = uniq(x["ru"] for x in items)
+    de_s = uniq(x["desc"] for x in items)
+    ph_s = uniq(x["phase"] for x in items)
+    fa_s = uniq((x["fam"], x["famRu"]) for x in items)
+    fr_s = uniq(x["frag"] for x in items)
+    tr_s = uniq(x["trust"] for x in items)
+    def ix(vals):
+        return {v: i for i, v in enumerate(vals)}
+    ru_i, de_i = ix(ru_s), ix(de_s)
+    ph_i, fa_i = ix(ph_s), ix(fa_s)
+    fr_i, tr_i = ix(fr_s), ix(tr_s)
+
+    packed = []
+    for x in items:
+        packed.append([
+            x["num"], ru_i[x["ru"]], de_i[x["desc"]], ph_i[x["phase"]],
+            fa_i[(x["fam"], x["famRu"])], fr_i[x["frag"]], tr_i[x["trust"]],
+            x["det"], x["clip"], x["catId"], x["sub"],
+        ])
+    payload = {
+        "ru": ru_s, "desc": de_s, "phase": ph_s, "fam": fa_s,
+        "frag": fr_s, "trust": tr_s, "items": packed,
+    }
+
     os.makedirs(REF, exist_ok=True)
-    for fname, obj in (("anim_items.json", items), ("anim_cats.json", cat_list),
+    for fname, obj in (("anim_items.json", payload), ("anim_cats.json", cat_list),
                        ("anim_subs.json", out_subs)):
         with open(os.path.join(REF, fname), "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
