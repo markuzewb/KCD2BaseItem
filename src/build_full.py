@@ -47,6 +47,11 @@ function extraText(it){
 }"""
 
 
+BADGE_HTML = ("<span class='badge' style='background:rgba(236,72,153,.15);"
+             "color:#f9a8d4;border-color:rgba(236,72,153,.35);padding:1px 6px;"
+             "font-size:10px;vertical-align:middle'>Ж</span>")
+
+
 def load(name):
     return json.load(open(os.path.join(REF, name), encoding="utf-8"))
 
@@ -178,14 +183,16 @@ def main():
     s = s.replace('<div class="en-name">${esc(it.en)||"—"}</div>',
                   '<div class="en-name">${esc(it.en)||""}</div>')
 
-    # --- бейдж «Ж» ---
-    old_name = '<div class="ru-name">${esc(it.ru)||"—"}</div>'
-    badge = ("<span class='badge' style='background:rgba(236,72,153,.15);"
-             "color:#f9a8d4;border-color:rgba(236,72,153,.35);padding:1px 6px;"
-             "font-size:10px;vertical-align:middle'>Ж</span>")
-    s = s.replace(old_name,
+    # --- бейдж «Ж» у женских вещей ---
+    # вставляем шаблон ${it.female?FEMALE_BADGE:""}, а саму плашку объявляем
+    # JS-константой: так в разметке не остаётся лишних кавычек
+    if "const FEMALE_BADGE" not in s:
+        s = s.replace("const FIELD_GROUPS = ",
+                      "const FEMALE_BADGE = " + js(BADGE_HTML) + ";\n"
+                      "const FIELD_GROUPS = ", 1)
+    s = s.replace('<div class="ru-name">${esc(it.ru)||"—"}</div>',
                   '<div class="ru-name">${esc(it.ru)||"—"}'
-                  '${it.female?" ' + badge + '":""}</div>')
+                  '${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>')
 
     open(OUT, "w", encoding="utf-8").write(s)
     print(f"готово: {len(items)} предметов, {len(cats)} категорий, "

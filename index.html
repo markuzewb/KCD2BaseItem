@@ -333,6 +333,7 @@ const tabsEl = $("tabs"), tbody = $("tbody"), cardsWrap = $("cardsWrap"),
       paginationEl = $("pagination"), resultInfo = $("resultInfo"),
       searchInput = $("searchInput"), searchClear = $("searchClear");
 
+const FEMALE_BADGE = "<span class='badge' style='background:rgba(236,72,153,.15);color:#f9a8d4;border-color:rgba(236,72,153,.35);padding:1px 6px;font-size:10px;vertical-align:middle'>Ж</span>";
 const FIELD_GROUPS = {"бой":"⚔️ Боевые характеристики","защита":"🛡️ Защита","требования":"💪 Требования","эффект":"✨ Действие","общее":"📦 Общее","крафт":"🔨 Связанные предметы","тех":"⚙️ Прочие параметры"};
 function extraGroups(it){
   const by = {};
@@ -466,7 +467,7 @@ function render(){
           <div class="item-cell">
             ${iconHtml(it)}
             <div>
-              <div class="ru-name">${esc(it.ru)||"—"}${it.female?" <span class='badge' style='background:rgba(236,72,153,.15);color:#f9a8d4;border-color:rgba(236,72,153,.35);padding:1px 6px;font-size:10px;vertical-align:middle'>Ж</span>":""}</div>
+              <div class="ru-name">${esc(it.ru)||"—"}${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>
               <div class="en-name">${esc(it.en)||""}</div>
             </div>
           </div>
@@ -500,7 +501,7 @@ function render(){
           <div style="display:flex;gap:11px;align-items:center;min-width:0">
             ${iconHtml(it)}
             <div style="min-width:0">
-              <div class="ru-name">${esc(it.ru)||"—"}${it.female?" <span class='badge' style='background:rgba(236,72,153,.15);color:#f9a8d4;border-color:rgba(236,72,153,.35);padding:1px 6px;font-size:10px;vertical-align:middle'>Ж</span>":""}</div>
+              <div class="ru-name">${esc(it.ru)||"—"}${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>
               <div class="en-name">${esc(it.en)||""}</div>
             </div>
           </div>
