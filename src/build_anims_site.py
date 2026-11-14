@@ -50,14 +50,17 @@ def unpack_anims(pack):
     ru, de = pack["ru"], pack["desc"]
     ph, fa = pack["phase"], pack["fam"]
     fr, tr = pack["frag"], pack["trust"]
+    pose = pack.get("pose") or []
     out = []
     for row in pack["items"]:
-        num, ru_i, de_i, ph_i, fa_i, fr_i, tr_i, det, clip, cat_id, sub = row
+        (num, ru_i, de_i, ph_i, fa_i, fr_i, tr_i, det, clip, cat_id, sub,
+         pose_i) = (row + [0])[:12]
         fam, fam_ru = fa[fa_i]
         out.append({
             "num": num, "ru": ru[ru_i], "desc": de[de_i], "phase": ph[ph_i],
             "fam": fam, "famRu": fam_ru, "frag": fr[fr_i], "trust": tr[tr_i],
             "det": det, "clip": clip, "catId": cat_id, "sub": sub,
+            "pose": pose[pose_i] if pose_i < len(pose) else "",
             "cat": "", "id": clip,
         })
     return out
@@ -149,7 +152,7 @@ def main():
         "for(const r of p.items){const f=p.fam[r[4]];"
         "out.push({num:r[0],ru:p.ru[r[1]],desc:p.desc[r[2]],phase:p.phase[r[3]],"
         "fam:f[0],famRu:f[1],frag:p.frag[r[5]],trust:p.trust[r[6]],det:r[7],"
-        'clip:r[8],catId:r[9],sub:r[10],cat:"",id:r[8]});}return out;})();\n')
+        'clip:r[8],catId:r[9],sub:r[10],pose:p.pose[r[11]||0],cat:"",id:r[8]});}return out;})();\n')
     anim_js = ("const ANIM_PACK = " + js(anims_pack) + ";\n" + unpack_js
                + "const ACATS = " + js(acats) + ";\n"
                + "const ASUBS = " + js(asubs) + ";\n"
@@ -379,16 +382,29 @@ function catName(catId){''', 1)
       if(!hay.includes(q)) return false;
     }
     return true;
-  });''', '''function animHay(it){
+  });''', '''function poseKeyOf(it){
+  const st = (it.phase||"").trim()==="Ожидание / поза" || (it.phase||"").trim()==="Цикл";
+  return (it.pose || "none") + (st ? "_static" : "_action");
+}
+function poseStatic(it){
+  const p = (it.phase||"").trim();
+  return p==="Ожидание / поза" || p==="Цикл";
+}
+function animHay(it){
   return (it.ru+" "+it.clip+" "+(it.desc||"")+" "+(it.phase||"")+" "+(it.fam||"")+" "+(it.famRu||"")+" "+(it.frag||"")+" "+(it.det||[]).join(" ")).toLowerCase();
 }
 function getFiltered(){
   const q = state.query.trim().toLowerCase();
   const anims = isAnims();
   const cid = curCat(), sub = curSub();
+  const poseTab = anims && cid>=0 && ACATS[cid] && ACATS[cid].pose;
   let list = dataList().filter(it=>{
-    if(cid!==-1 && (anims ? it.catId : it.cat)!==cid) return false;
-    if(sub!=="all" && it.sub!==sub) return false;
+    if(cid!==-1 && !poseTab && (anims ? it.catId : it.cat)!==cid) return false;
+    // во вкладке «Позы» подкатегория — это поза + статично/действие
+    if(sub!=="all"){
+      if(poseTab){ if(poseKeyOf(it)!==sub) return false; }
+      else if(it.sub!==sub) return false;
+    }
     if(!anims){
       if(state.onlyPriced && it.price==null) return false;
       if(state.onlyWeighted && it.weight==null) return false;
@@ -416,6 +432,9 @@ function getFiltered(){
 
     ANIM_RENDER = r"""
 /* ------------------------------------------------------- АНИМАЦИИ */
+const POSE_LABEL = {stand:"Стоя", sit:"Сидя", lie:"Лёжа", sleep:"Сон",
+                   kneel:"На коленях", crouch:"Присев", horse:"Верхом", lean:"Опираясь"};
+function poseLabel(p){ return POSE_LABEL[p] || ""; }
 function clipCopyHtml(clip, small){
   return `<button class="copy-clip" data-clip="${esc(clip)}" title="Скопировать имя анимации">⧉ Копировать${small?"":" имя"}</button>`;
 }
@@ -453,6 +472,7 @@ function animCard(it, idx){
       <div class="item-meta">
         <span class="meta-chip">${esc(it.phase)||"—"}</span>
         <span class="meta-chip">${esc(it.famRu)||"—"}</span>
+        ${it.pose ? `<span class="meta-chip">${poseLabel(it.pose)}</span>` : ""}
       </div>
       ${clipCopyHtml(it.clip)}
     </div>`;
@@ -514,6 +534,7 @@ function openAnimModal(num){
       <div class="detail-item"><div class="k">Что это</div><div class="v">${esc(it.ru)||"—"}</div></div>
       <div class="detail-item"><div class="k">Смысл по имени</div><div class="v" style="font-size:13px">${esc(it.desc)||"—"}</div></div>
       <div class="detail-item"><div class="k">Категория</div><div class="v">${esc(it.cat)||"—"}</div></div>
+      <div class="detail-item"><div class="k">Поза</div><div class="v">${it.pose ? poseLabel(it.pose) + (poseStatic(it) ? " (статично)" : " (действие)") : "По имени не определить"}</div></div>
       <div class="detail-item"><div class="k">Фаза</div><div class="v">${esc(it.phase)||"—"}</div></div>
       <div class="detail-item"><div class="k">Семейство</div><div class="v">${esc(it.famRu)||"—"}${it.fam&&it.fam!==it.famRu?` <span style="color:var(--muted);font-size:12px">(${esc(it.fam)})</span>`:""}</div></div>
       <div class="detail-item"><div class="k">Fragment</div><div class="v"><span class="mono">${esc(it.frag)||"—"}</span></div></div>
