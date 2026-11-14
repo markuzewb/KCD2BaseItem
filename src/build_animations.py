@@ -244,6 +244,34 @@ POSES = [
 # а не совершает действие)
 STATIC_PHASES = {"Ожидание / поза", "Цикл"}
 
+# ------------------------------------------------- тип анимации
+# static — персонаж на месте и не действует (ожидание, цикл);
+# move   — в имени есть слово перемещения (ходьба, бег, прыжок…);
+# action — всё остальное: действия, вход/выход, переходы, варианты.
+KINDS = ["action", "static", "move"]
+
+MOVE_WORDS = {
+    "walk", "walking", "run", "running", "sprint", "sprinting", "jog",
+    "trot", "gallop", "canter", "strafe", "locomotion",
+    "jump", "jumping", "fall", "falldown", "land", "landing",
+    "climb", "climbing", "crawling", "slide", "dodge",
+    "backward", "bckwrd", "forward", "fwd", "bwd",
+    "turn", "turns", "bigturns",
+}
+
+
+def kind_of(clip, phase):
+    """Тип анимации: 'static' | 'move' | 'action'.
+
+    Статичность важнее движения: «широкие повороты в ожидании» — это
+    всё-таки статичная поза, а не перемещение.
+    """
+    if (phase or "").strip() in STATIC_PHASES:
+        return "static"
+    if set(tokens(clip)) & MOVE_WORDS:
+        return "move"
+    return "action"
+
 
 def pose_of(clip, phase):
     """Ключ позы: 'stand', 'sit', … или '' если в имени позы нет."""
@@ -320,6 +348,7 @@ def main():
         # поза: отдельная сквозная разметка, не зависит от категории
         it["pose"] = pose_of(clip, phase)
         it["poseKind"] = "static" if (phase or "").strip() in STATIC_PHASES else "action"
+        it["kind"] = kind_of(clip, phase)
 
         if cat in BIG:
             sk = sub_key(cat, clip)
@@ -422,10 +451,11 @@ def main():
             x["num"], ru_i[x["ru"]], de_i[x["desc"]], ph_i[x["phase"]],
             fa_i[(x["fam"], x["famRu"])], fr_i[x["frag"]], tr_i[x["trust"]],
             x["det"], x["clip"], x["catId"], x["sub"], po_i.get(x["pose"], 0),
+            KINDS.index(x["kind"]),
         ])
     payload = {
         "ru": ru_s, "desc": de_s, "phase": ph_s, "fam": fa_s,
-        "frag": fr_s, "trust": tr_s, "pose": po_s, "items": packed,
+        "frag": fr_s, "trust": tr_s, "pose": po_s, "kind": KINDS, "items": packed,
     }
 
     os.makedirs(REF, exist_ok=True)
@@ -440,6 +470,10 @@ def main():
           f"{sum(len(v) for v in out_subs.values())} подкатегорий, {size:.2f} МБ")
     print(f"позы: {with_pose} с явной позой, {len(items)-with_pose} без; "
           f"{static} статичных, {len(items)-static} действий")
+    kc = {}
+    for x in items:
+        kc[x["kind"]] = kc.get(x["kind"], 0) + 1
+    print("типы: " + ", ".join(f"{k}={kc.get(k,0)}" for k in KINDS))
 
 
 if __name__ == "__main__":
