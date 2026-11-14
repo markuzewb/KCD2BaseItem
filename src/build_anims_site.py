@@ -88,12 +88,25 @@ MODE_SWITCH = """
   </div>
 """
 
-MODE_CSS = """.modes{display:inline-flex;gap:6px;padding:5px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.03);margin-bottom:16px}
+MODE_CSS = """.modes{display:inline-flex;gap:6px;padding:5px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.03);margin-bottom:16px;flex:0 0 auto}
 .mode{display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--muted);font-size:15px;font-weight:800;transition:.18s;cursor:pointer}
 .mode:hover{color:var(--text);background:rgba(255,255,255,.05)}
 .mode.active{background:var(--grad);color:#fff;box-shadow:0 6px 18px rgba(124,58,237,.4)}
 .mode .ic{font-size:17px}
 .mode .cnt{background:rgba(255,255,255,.16);border-radius:99px;padding:1px 9px;font-size:12px;font-weight:800}
+.header-inner{gap:14px}
+.header-stats{min-width:0}
+.header-stats .stat-pill{flex:0 0 auto}
+.logo{flex:0 0 auto}
+.modes .mode{white-space:nowrap}
+@media (max-width:1180px){
+  .header-inner{row-gap:10px}
+  .header-stats{order:3;width:100%;margin-left:0;justify-content:flex-start}
+}
+@media (max-width:640px){
+  .modes{width:100%}
+  .mode{flex:1 1 0;justify-content:center;padding:10px 8px;font-size:13.5px}
+}
 .anim-desc{color:var(--muted);font-size:12.5px;line-height:1.45;margin-top:3px;max-width:640px}
 .clip{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#c4b5fd;word-break:break-all}
 .copy-clip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;margin-top:6px}
@@ -151,21 +164,24 @@ def main():
                   'всего в базе: <b>${dataList().length.toLocaleString(\"ru-RU\")} ${isAnims()?"анимаций":"предметов"}</b>', 1)
 
     # фильтр «только с характеристиками» (был в сборке предметов)
-    s = s.replace('<button class="chip" id="onlyWithIcon">Только с иконкой</button>',
-                  '<button class="chip" id="onlyWithIcon">Только с иконкой</button>\n'
-                  '      <button class="chip" id="onlyDetailed">Только с характеристиками</button>', 1)
-    s = s.replace('$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });',
-                  '$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });\n'
-                  '$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });', 1)
+    if 'id="onlyDetailed"' not in s:
+        s = s.replace('<button class="chip" id="onlyWithIcon">Только с иконкой</button>',
+                      '<button class="chip" id="onlyWithIcon">Только с иконкой</button>\n'
+                      '      <button class="chip" id="onlyDetailed">Только с характеристиками</button>', 1)
+    if 'onlyDetailed")' not in s.split("/* SEARCH */")[1]:
+        s = s.replace('$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });',
+                      '$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });\n'
+                      '$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });', 1)
     s = s.replace('$("onlyWithIcon").classList.remove("active");',
                   '$("onlyWithIcon").classList.remove("active"); $("onlyDetailed").classList.remove("active");', 1)
     s = s.replace('state.onlyWithIcon=false; state.sort="default";',
                   'state.onlyWithIcon=false; state.onlyDetailed=false; state.sort="default";', 1)
 
-    # счётчик характеристик в шапке
-    s = s.replace('Категорий: <b id="statCats">—</b></div>',
-                  'Категорий: <b id="statCats">—</b></div>\n'
-                  '      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>', 1)
+    # счётчик характеристик в шапке (только если его ещё нет)
+    if 'id="statFields"' not in s:
+        s = s.replace('Категорий: <b id="statCats">—</b></div>',
+                      'Категорий: <b id="statCats">—</b></div>\n'
+                      '      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>', 1)
 
 
     # ---------- правки карточки предмета (перенесены из build_full.py) ----------
@@ -225,6 +241,20 @@ def main():
     s = s.replace('<div class="ru-name">${esc(it.ru)||"—"}</div>',
                   '<div class="ru-name">${esc(it.ru)||"—"}'
                   '${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>')
+
+    # заголовки таблицы зависят от раздела
+    s = s.replace("""            <th>#</th>
+            <th>Русское название</th>
+            <th>Название предмета (Name)</th>
+            <th>Цена</th>
+            <th>Вес</th>
+            <th>Категория</th>""",
+                  """            <th>#</th>
+            <th id="thName">Русское название</th>
+            <th id="thClip">Название предмета (Name)</th>
+            <th id="thCol4">Цена</th>
+            <th id="thCol5">Вес</th>
+            <th>Категория</th>""", 1)
 
     # ------------------------------------------------- переключатель
     s = s.replace('<div class="header-stats">', MODE_SWITCH +
@@ -319,7 +349,9 @@ function catName(catId){''', 1)
   });''', '''function renderSubcats(){
   const bar = $("subcatsBar");
   const cid = curCat();
-  const list = subMap()[String(cid)];
+  let list = subMap()[String(cid)];
+  // если делить не на что — панель подкатегорий не нужна
+  if(list && list.length===1 && list[0].key==="all") list = null;
   if(cid===-1 || !list || !list.length){ bar.style.display="none"; return; }
   bar.style.display="";
   $("subcatsCatName").textContent = catName(cid);
@@ -510,21 +542,38 @@ function openAnimModal(num){
                   'всего в базе: <b>${dataList().length.toLocaleString(\"ru-RU\")} ${isAnims()?"анимаций":"предметов"}</b>', 1)
 
     # фильтр «только с характеристиками» (был в сборке предметов)
-    s = s.replace('<button class="chip" id="onlyWithIcon">Только с иконкой</button>',
-                  '<button class="chip" id="onlyWithIcon">Только с иконкой</button>\n'
-                  '      <button class="chip" id="onlyDetailed">Только с характеристиками</button>', 1)
-    s = s.replace('$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });',
-                  '$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });\n'
-                  '$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });', 1)
+    if 'id="onlyDetailed"' not in s:
+        s = s.replace('<button class="chip" id="onlyWithIcon">Только с иконкой</button>',
+                      '<button class="chip" id="onlyWithIcon">Только с иконкой</button>\n'
+                      '      <button class="chip" id="onlyDetailed">Только с характеристиками</button>', 1)
+    if 'onlyDetailed")' not in s.split("/* SEARCH */")[1]:
+        s = s.replace('$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });',
+                      '$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });\n'
+                      '$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });', 1)
     s = s.replace('$("onlyWithIcon").classList.remove("active");',
                   '$("onlyWithIcon").classList.remove("active"); $("onlyDetailed").classList.remove("active");', 1)
     s = s.replace('state.onlyWithIcon=false; state.sort="default";',
                   'state.onlyWithIcon=false; state.onlyDetailed=false; state.sort="default";', 1)
 
-    # счётчик характеристик в шапке
-    s = s.replace('Категорий: <b id="statCats">—</b></div>',
-                  'Категорий: <b id="statCats">—</b></div>\n'
-                  '      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>', 1)
+    # счётчик характеристик в шапке (только если его ещё нет)
+    if 'id="statFields"' not in s:
+        s = s.replace('Категорий: <b id="statCats">—</b></div>',
+                      'Категорий: <b id="statCats">—</b></div>\n'
+                      '      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>', 1)
+
+    # заголовки таблицы зависят от раздела
+    s = s.replace("""            <th>#</th>
+            <th>Русское название</th>
+            <th>Название предмета (Name)</th>
+            <th>Цена</th>
+            <th>Вес</th>
+            <th>Категория</th>""",
+                  """            <th>#</th>
+            <th id="thName">Русское название</th>
+            <th id="thClip">Название предмета (Name)</th>
+            <th id="thCol4">Цена</th>
+            <th id="thCol5">Вес</th>
+            <th>Категория</th>""", 1)
 
     # ------------------------------------------------- переключатель
     MODE_JS = r"""
@@ -548,10 +597,19 @@ function applyMode(){
       sort.value = "default"; state.sort = "default";
     }
   }
+  // заголовки столбцов: у анимаций нет цены и веса
+  const th = (id, v)=>{ const e = $(id); if(e) e.textContent = v; };
+  th("thName", anims ? "Русское название" : "Русское название");
+  th("thClip", anims ? "Имя анимации (Clip)" : "Название предмета (Name)");
+  th("thCol4", anims ? "Фаза" : "Цена");
+  th("thCol5", anims ? "Семейство" : "Вес");
   $("modeCntItems").textContent = ITEMS.length.toLocaleString("ru-RU");
   $("modeCntAnims").textContent = ACOUNT.toLocaleString("ru-RU");
-  const f = $("statFields");
-  if(f) f.parentNode.style.display = anims ? "none" : "";
+  const lbl = document.querySelector(".tabs-label span");
+  if(lbl) lbl.textContent = anims ? "🎬 Категории анимаций" : "📂 Категории предметов";
+  document.querySelectorAll(".stat-pill").forEach(p=>{
+    if(/Характеристик/.test(p.textContent)) p.style.display = anims ? "none" : "";
+  });
   document.title = anims ? "KCD2 Animations — Каталог анимаций" : "KCD2 Items Database — База предметов";
   const logo = document.querySelector(".logo-title");
   if(logo) logo.innerHTML = anims ? "KCD2 <span>ANIMATIONS</span>" : "KCD2 <span>ITEMS</span>";
@@ -572,7 +630,10 @@ document.querySelectorAll(".mode").forEach(b=>{
 function renderStats(){
   const anims = isAnims();
   $("statTotal").textContent = (anims ? ACOUNT : ITEMS.length).toLocaleString("ru-RU");
-  $("statTotal").parentNode.childNodes[0].textContent = anims ? "Всего анимаций: " : "Всего предметов: ";
+  // подпись меняем целиком, не трогая точку-индикатор
+  const pill = $("statTotal").parentNode;
+  pill.innerHTML = '<span class="dot"></span>' + (anims ? "Всего анимаций: " : "Всего предметов: ")
+                 + '<b id="statTotal">' + (anims ? ACOUNT : ITEMS.length).toLocaleString("ru-RU") + '</b>';
   $("statCats").textContent = catList().length;
   const sf = $("statFields");
   if(sf) sf.textContent = ITEMS.reduce((n,it)=>n+(it.extra?it.extra.length:0),0).toLocaleString("ru-RU");
