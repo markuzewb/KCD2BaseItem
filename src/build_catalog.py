@@ -111,12 +111,14 @@ SUBS = {
         ("bridle", "Уздечки"), ("chanfron", "Шафроны"),
         ("harness", "Упряжь")],
 
-    6: [("drinks", "Напитки"), ("meal", "Готовые блюда"),
-        ("cooked", "Варёное и жареное"), ("smoked", "Копчёное"),
-        ("dried", "Вяленое и сушёное"), ("fruitveg", "Овощи, фрукты, грибы"),
-        ("bread", "Хлеб и выпечка"), ("cheese", "Сыры и молочное"),
-        ("meat", "Мясо и рыба"), ("grain", "Крупы и приправы"),
-        ("other", "Прочее")],
+    # порядок = порядок кнопок на сайте; обработка (варёное/копчёное)
+    # идёт после вида продукта, чтобы «Копчёный сыр» лежал в сырах
+    6: [("meat", "Мясо и рыба"), ("offal", "Потроха"),
+        ("fruitveg", "Овощи и фрукты"), ("mushroom", "Грибы"),
+        ("bread", "Хлеб и выпечка"), ("cheese", "Молоко, сыр, яйца"),
+        ("drinks", "Напитки"), ("meal", "Готовые блюда"),
+        ("grain", "Специи и приправы"),
+        ("potion", "Снадобья"), ("other", "Прочее")],
 
     7: [("skill", "Книги навыков"), ("lore", "Книги и дневники"),
         ("story", "Повести и стихи"), ("recipe", "Рецепты и чертежи"),
@@ -378,51 +380,61 @@ MEAL = (r"суп|бульон|похлёбк|похлебк|рагу|каш[аи
 
 
 def food_slot(x):
+    """Подкатегория еды.
+
+    Основа — поле Type из файлов игры, это готовая классификация:
+        0 овощи, 1 снадобья, 2 мясо, 3 напитки, 5 мясо и потроха,
+        6 овощи, 7 грибы, 8 выпечка, 9 молочное.
+    Правила по словам работают только когда Type пуст, иначе они
+    перебивали точные данные: «сало» совпадало внутри «salami»,
+    «water» внутри «watermelon».
+    """
     a = x["attributes"] or {}
     low = (x.get("name_ru") or "").lower()
     n = bare(x).lower()
     both = low + " " + n
 
-    if re.search(r"вино|пиво|медовух|сидр|спиртн|водк|ликёр|ликер|браг|напит|"
-                 r"самогон|сливовиц|water|вода|wine|beer|mead|alcohol|spirit", both):
-        return "drinks"
-    if a.get("AlcoholContent"):
-        return "drinks"
-    if low.startswith(("сушён", "сушен", "вялен")) or "dried" in n:
-        return "dried"
-    if low.startswith(("копчён", "копчен")) or "smoked" in n:
-        return "smoked"
-    if low.startswith(("варён", "варен", "жарен", "печён", "печен", "приготов",
-                       "тушён", "тушен")):
-        return "cooked"
-    if re.search(MEAL, low):
-        return "meal"
-    if re.search(MEAT, both):
-        return "meat"
-    if re.search(BREAD, both):
-        return "bread"
-    if re.search(CHEESE, both):
-        return "cheese"
-    if re.search(FRUITVEG, both):
-        return "fruitveg"
-    if re.search(GRAIN, both):
-        return "grain"
-
-    # поле Type у еды: 0 овощи/фрукты, 2 мясо, 3 напитки, 5 мясо/рыба,
-    # 6 овощи, 7 грибы, 8 выпечка, 9 молочное
+    # --- точная классификация из игры
     t = a.get("Type")
-    if t == "0":
+    t = "" if t is None else str(t).strip()
+    if t in ("0", "6"):
         return "fruitveg"
-    if t in ("2", "5"):
+    if t == "2":
         return "meat"
-    if t == "6":
-        return "fruitveg"
+    if t == "3":
+        return "drinks"
+    if t == "5":
+        return "offal"
     if t == "7":
-        return "fruitveg"
+        return "mushroom"
     if t == "8":
         return "bread"
     if t == "9":
         return "cheese"
+    if t == "1":
+        return "potion"
+
+    # --- Type пуст: разбираем по названию
+    # специи и приправы — отдельно: «driedClovesSpice» это не сушёные фрукты
+    if re.search(r"специ|пряност|приправ|spice|перец|горчиц|корица|гвоздик|"
+                 r"шафран|мускат|соль|кориандр|тмин|укроп|петрушк|лавров", both):
+        return "grain"
+    # варёное/жареное яйцо — это молочное, а не блюдо
+    if re.search(r"яйц|egg", both) and re.search(r"варён|варен|жарен|boiled|fried", both):
+        return "cheese"
+    # обработка (варёное, копчёное…) важнее продукта — так в справочнике
+    if re.search(r"(^|\s)(сушён|сушен|вялен)|dried", both):
+        return "dried"
+    if re.search(r"(^|\s)(копчён|копчен)|smoked", both):
+        return "smoked"
+    if re.search(r"(^|\s)(варён|варен|жарен|печён|печен|приготов|тушён|тушен)", low):
+        return "cooked"
+    if re.search(r"бульон|суп|похлёбк|похлебк|рагу|каш[аи]|запекан|жаркое|"
+                 r"stew|soup|porridge|roast|broth", both):
+        return "meal"
+    if re.search(r"^(вино|пиво|медовух|сидр|водк|самогон|сливовиц)|\b(wine|beer|mead)\b", both):
+        return "drinks"
+    # иначе — «прочее»: специи, мёд, сомнительные сумки
     return "other"
 
 
