@@ -43,20 +43,29 @@
 - **Поиск** по русскому и английскому названию, внутреннему Name и ID.
 - **Сортировка** по названию, цене и весу; **фильтры** «только с ценой»,
   «только с весом», «только с иконкой».
+- **5 604 предмета** — полная выгрузка игровых файлов, включая конскую
+  упряжь и объекты мира, 16 категорий и 99 подкатегорий.
 - **Таблица и карточки**, пагинация по 25/50/100.
-- **Карточка предмета**: все характеристики из игры, ID, кнопки копирования.
+- **Карточка предмета**: все характеристики из игры (57 220 значений),
+  разбитые по группам — бой, защита, требования, действие, общее;
+  каждая подпись и единица измерения по-русски. Поиск идёт и по
+  характеристикам, есть фильтр «только с характеристиками».
 - **Экспорт CSV** по текущей выборке.
 - Горячая клавиша `/` — фокус в поиск, `Esc` — закрыть карточку.
 
 ## Как это собрано
 
 ```
-data/reference/KCD2_Items.html   эталонный файл — источник index.html
-data/reference/items.json        3 784 предмета (исходная разметка)
-data/reference/items_tagged.json 3 784 предмета с новой таксономией
-data/reference/cats_tagged.json  13 категорий, data/reference/subs_tagged.json — 94 подкатегории
-src/retag_items.py               → *_tagged.json (пересмотр таксономии)
-src/build_site.py                → index.html (копия эталона + новая таксономия)
+data/reference/KCD2_Items.html   эталонный файл — источник вёрстки index.html
+data/reference/items_full.json   5 604 предмета, все характеристики (6 МБ)
+data/reference/cats_full.json    16 категорий, subs_full.json — 99 подкатегорий
+src/item_fields.py               русские подписи, единицы и расшифровки полей
+src/build_catalog.py             архив wiki/ → *_full.json
+src/build_full.py                → index.html (эталон + полная база)
+data/reference/items.json        3 784 предмета (прежняя база, для истории)
+data/reference/items_tagged.json прежняя разметка (13 категорий)
+src/retag_items.py               → *_tagged.json (прежняя таксономия)
+src/build_site.py                → index.html по прежней базе (устарел)
 assets/icons/sheet-N.webp        21 спрайт-лист (не используется на сайте)
 data/icons.json                  координаты иконок (не используется на сайте)
 src/build_icons.py               → assets/icons/ + data/icons.json
@@ -68,12 +77,18 @@ src/lexicon_ru.py, src/grammar_ru.py, src/names_ru.py
 Пересборка страницы:
 
 ```bash
-python3 src/retag_items.py   # пересчитать таксономию
-python3 src/build_site.py    # собрать index.html
+python3 src/build_catalog.py   # архив wiki/ → data/reference/*_full.json
+python3 src/build_full.py      # собрать index.html
 ```
 
-`build_site.py` копирует эталон и подставляет в него `ITEMS`, `CATEGORIES`
-и `SUBCATS` из `*_tagged.json`, добавляя метку «Ж» женским вещам.
+`build_catalog.py` читает `wiki/KCD2_ITEMS_RESULTS.zip`, раскладывает все
+5 604 предмета по категориям (эвристики по типу XML, имени модели и полю
+`Class`), переводит характеристики через `src/item_fields.py`.
+`build_full.py` берёт эталонную вёрстку и подставляет в неё данные,
+вывод характеристик по группам, поиск по ним и метку «Ж».
+
+`build_site.py` — прежняя сборка по 3 784 предметам; она осталась
+для истории и запускать её не нужно: она перезапишет полную базу.
 
 ## Две базы в репозитории
 
