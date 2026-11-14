@@ -378,12 +378,12 @@ return sg}"object"===typeof exports&&"undefined"!==typeof module?module.exports=
 (function(){
 'use strict';
 const WIKI_BASE=String(window.KCD2RP_WIKI_BASE||'').replace(/\/+$/,'');
-const wikiUrl=u=>typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//')?WIKI_BASE+u:u;
+const wikiUrl=u=>typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//')?'.'+u:u;
 const wikiFetch=(u,options)=>fetch(wikiUrl(u),options);
 const h=React.createElement;
 const navigate=href=>window.KCD2RPNavigate?window.KCD2RPNavigate(href):window.location.assign(wikiUrl(href));
 const fmt=n=>Number(n||0).toLocaleString('ru-RU');
-const MAP_ASSETS=location.protocol==='file:'?'./maps/':wikiUrl('/maps/');
+const MAP_ASSETS='./maps/';
 const familyNames={motion:'Движение',other:'Прочие',combat:'Бой',adlg:'Диалоги',quest:'Задания',horse:'Лошади',tournament:'Турниры',hit:'Реакции на удар',camp:'Лагерь',stand:'Стойка',free:'Свободные'};
 const familyLabel=x=>familyNames[x]||x;
 const iconFor={settlement:'⌂',landmark:'◆',transport:'♞',other:'✦'};
@@ -540,7 +540,7 @@ window.WikiExtraItemArt=ItemArt;
 </script><script>/* KCD2RP Wiki v0.4 – visual browser of owner's KCD2 icon archive. */
 (function(){'use strict';
 const WIKI_BASE=String(window.KCD2RP_WIKI_BASE||'').replace(/\/+$/,'');
-const wikiUrl=u=>typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//')?WIKI_BASE+u:u;
+const wikiUrl=u=>typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//')?'.'+u:u;
 const wikiFetch=(u,options)=>fetch(wikiUrl(u),options);
 const h=React.createElement;
 const go=target=>window.KCD2RPNavigate?window.KCD2RPNavigate(target):(location.href=wikiUrl(target));
@@ -603,7 +603,7 @@ window.WikiIconsPage=IconGallery;
 </script><script>/* KCD2RP Wiki React edition. Self-hosted MIT-licensed React 16 runtime. */
 (function(){'use strict';
 const WIKI_BASE=String(window.KCD2RP_WIKI_BASE||'').replace(/\/+$/,'');
-const wikiUrl=u=>typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//')?WIKI_BASE+u:u;
+const wikiUrl=u=>typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//')?'.'+u:u;
 const wikiFetch=(u,options)=>fetch(wikiUrl(u),options);
 const h=React.createElement;
 const ICON_PATHS={
