@@ -224,6 +224,44 @@ def build_title(clip):
     return title, det
 
 
+# ------------------------------------------------------- позы персонажа
+# Поза читается только из явных слов в имени клипа. Если слова нет —
+# не гадаем: такая анимация попадает в «поза не указана».
+# Порядок в списке — это и приоритет, и порядок подкатегорий на сайте.
+POSES = [
+    # ключ,      подпись,             приоритет, слова в имени
+    ("sit",     "Сидя",               7, {"sitting", "sit", "sitdown"}),
+    ("sleep",   "Сон",                6, {"sleeping", "sleep"}),
+    ("lie",     "Лёжа",               5, {"lying", "dead", "bed"}),
+    ("kneel",   "На коленях",         4, {"kneel", "kneeling"}),
+    ("crouch",  "Присев",             3, {"crouched", "crouch", "crouching"}),
+    ("horse",   "Верхом",             2, {"horse", "rider", "horserider"}),
+    ("stand",   "Стоя",               1, {"stand", "standing"}),
+    ("lean",    "Опираясь",           0, {"lean", "leaning"}),
+]
+
+# фазы, при которых поза считается статичной (человек стоит/сидит/лежит,
+# а не совершает действие)
+STATIC_PHASES = {"Ожидание / поза", "Цикл"}
+
+
+def pose_of(clip, phase):
+    """Ключ позы: 'stand', 'sit', … или '' если в имени позы нет."""
+    ts = set(tokens(clip))
+    best, best_pri = "", -1
+    for key, _label, pri, words in POSES:
+        if ts & words and pri > best_pri:
+            best, best_pri = key, pri
+    return best
+
+
+def pose_key(clip, phase):
+    """Ключ подкатегории: 'sit_static', 'sit_action', 'none_static'…"""
+    p = pose_of(clip, phase)
+    kind = "static" if (phase or "").strip() in STATIC_PHASES else "action"
+    return (p or "none") + "_" + kind
+
+
 def category_key(row):
     return (row[3] or "Прочее").strip()
 
@@ -279,6 +317,10 @@ def main():
         }
         items.append(it)
 
+        # поза: отдельная сквозная разметка, не зависит от категории
+        it["pose"] = pose_of(clip, phase)
+        it["poseKind"] = "static" if (phase or "").strip() in STATIC_PHASES else "action"
+
         if cat in BIG:
             sk = sub_key(cat, clip)
         else:
@@ -298,6 +340,25 @@ def main():
             else:
                 s["label"] = "Прочие"
 
+    # ------------------------------------------------ вкладка «Позы»
+    # сквозная разметка: поза × статично/действие
+    pose_counts = {}
+    for it in items:
+        k = pose_key(it["clip"], it["phase"])
+        pose_counts[k] = pose_counts.get(k, 0) + 1
+    pose_subs = []
+    for key, label, _pri, _w in POSES:
+        for kind, kind_label in (("static", "статично"), ("action", "действие")):
+            k = key + "_" + kind
+            if pose_counts.get(k):
+                pose_subs.append({"key": k, "label": f"{label} {kind_label}",
+                                  "count": pose_counts[k]})
+    for kind, kind_label in (("static", "статично"), ("action", "действие")):
+        k = "none_" + kind
+        if pose_counts.get(k):
+            pose_subs.append({"key": k, "label": f"Поза не указана, {kind_label}",
+                              "count": pose_counts[k]})
+
     # категории: порядок — по количеству, крупные вперёд
     order = sorted(cat_names, key=lambda c: (c == "Прочее", -cat_names[c]))
     cat_list = []
@@ -310,12 +371,31 @@ def main():
             if it["cat"] == name:
                 it["catId"] = i
 
+
     # из подкатегорий убираем «all» для больших, оставляем как «Все»
     out_subs = {}
     for name, cid in [(c["ru"], c["id"]) for c in cat_list]:
         lst = sorted(subs.get(name, {}).values(), key=lambda s: -s["count"])
         lst = [s for s in lst if s["key"] != "all"] or lst
         out_subs[str(cid)] = lst
+    # вкладка «Позы» — первой, сразу после «Все анимации»: это главный
+    # способ искать по позе. Нумеруем заново, чтобы catId шёл по порядку.
+    cat_list.insert(0, {
+        "id": 0, "ru": "Позы и состояния", "count": len(items),
+        "icon": "🧍", "pose": True,
+    })
+    for i, c in enumerate(cat_list):
+        c["id"] = i
+    for it in items:
+        it["catId"] += 1
+    # подкатегории привязаны к id — пересобираем под новую нумерацию
+    new_subs = {}
+    for c in cat_list:
+        if c.get("pose"):
+            new_subs[str(c["id"])] = pose_subs
+        else:
+            new_subs[str(c["id"])] = out_subs.get(str(c["id"] - 1), [])
+    out_subs = new_subs
 
     # ------------------------------------------------- сжатие повторов
     # описания, фазы и семейства повторяются тысячами: держим их словарями
@@ -328,22 +408,24 @@ def main():
     fa_s = uniq((x["fam"], x["famRu"]) for x in items)
     fr_s = uniq(x["frag"] for x in items)
     tr_s = uniq(x["trust"] for x in items)
+    po_s = ["", "stand", "sit", "lie", "sleep", "kneel", "crouch", "horse", "lean"]
     def ix(vals):
         return {v: i for i, v in enumerate(vals)}
     ru_i, de_i = ix(ru_s), ix(de_s)
     ph_i, fa_i = ix(ph_s), ix(fa_s)
     fr_i, tr_i = ix(fr_s), ix(tr_s)
+    po_i = ix(po_s)
 
     packed = []
     for x in items:
         packed.append([
             x["num"], ru_i[x["ru"]], de_i[x["desc"]], ph_i[x["phase"]],
             fa_i[(x["fam"], x["famRu"])], fr_i[x["frag"]], tr_i[x["trust"]],
-            x["det"], x["clip"], x["catId"], x["sub"],
+            x["det"], x["clip"], x["catId"], x["sub"], po_i.get(x["pose"], 0),
         ])
     payload = {
         "ru": ru_s, "desc": de_s, "phase": ph_s, "fam": fa_s,
-        "frag": fr_s, "trust": tr_s, "items": packed,
+        "frag": fr_s, "trust": tr_s, "pose": po_s, "items": packed,
     }
 
     os.makedirs(REF, exist_ok=True)
@@ -352,8 +434,12 @@ def main():
         with open(os.path.join(REF, fname), "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
     size = os.path.getsize(os.path.join(REF, "anim_items.json")) / 1024 / 1024
+    with_pose = sum(1 for x in items if x["pose"])
+    static = sum(1 for x in items if x["poseKind"] == "static")
     print(f"готово: {len(items)} анимаций, {len(cat_list)} категорий, "
           f"{sum(len(v) for v in out_subs.values())} подкатегорий, {size:.2f} МБ")
+    print(f"позы: {with_pose} с явной позой, {len(items)-with_pose} без; "
+          f"{static} статичных, {len(items)-static} действий")
 
 
 if __name__ == "__main__":
