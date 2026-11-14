@@ -207,6 +207,8 @@ tbody tr:last-child td{border-bottom:none}
     <div class="header-stats">
       <div class="stat-pill"><span class="dot"></span>Всего предметов: <b id="statTotal">—</b></div>
       <div class="stat-pill">Категорий: <b id="statCats">—</b></div>
+      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>
+      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>
     </div>
   </div>
 </header>
@@ -229,7 +231,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="toolbar">
     <div class="search-box">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input class="search-input" id="searchInput" type="text" placeholder="Поиск по русскому, английскому названию, Name или ID…  ( / )" autocomplete="off">
+      <input class="search-input" id="searchInput" type="text" placeholder="Поиск по названию, Name, ID и характеристикам…  ( / )" autocomplete="off">
       <button class="search-clear" id="searchClear" title="Очистить">✕</button>
     </div>
     <div class="toolbar-actions">
@@ -259,6 +261,8 @@ tbody tr:last-child td{border-bottom:none}
       <button class="chip" id="onlyPriced">Только с ценой</button>
       <button class="chip" id="onlyWeighted">Только с весом</button>
       <button class="chip" id="onlyWithIcon">Только с иконкой</button>
+      <button class="chip" id="onlyDetailed">Только с характеристиками</button>
+      <button class="chip" id="onlyDetailed">Только с характеристиками</button>
       <button class="chip" id="resetFilters">↺ Сбросить всё</button>
     </div>
     <div class="result-info" id="resultInfo"></div>
@@ -356,6 +360,7 @@ const tabsEl = $("tabs"), tbody = $("tbody"), cardsWrap = $("cardsWrap"),
       paginationEl = $("pagination"), resultInfo = $("resultInfo"),
       searchInput = $("searchInput"), searchClear = $("searchClear");
 
+const FEMALE_BADGE = "<span class='badge' style='background:rgba(236,72,153,.15);color:#f9a8d4;border-color:rgba(236,72,153,.35);padding:1px 6px;font-size:10px;vertical-align:middle'>Ж</span>";
 const FIELD_GROUPS = {"бой":"⚔️ Боевые характеристики","защита":"🛡️ Защита","требования":"💪 Требования","эффект":"✨ Действие","общее":"📦 Общее","крафт":"🔨 Связанные предметы","тех":"⚙️ Прочие параметры"};
 function extraGroups(it){
   const by = {};
@@ -509,8 +514,8 @@ function render(){
           <div class="item-cell">
             ${iconHtml(it)}
             <div>
-              <div class="ru-name">${esc(it.ru)||"—"}</div>
-              <div class="en-name">${esc(it.en)||"—"}</div>
+              <div class="ru-name">${esc(it.ru)||"—"}${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>
+              <div class="en-name">${esc(it.en)||""}</div>
             </div>
           </div>
         </td>
@@ -543,8 +548,8 @@ function render(){
           <div style="display:flex;gap:11px;align-items:center;min-width:0">
             ${iconHtml(it)}
             <div style="min-width:0">
-              <div class="ru-name">${esc(it.ru)||"—"}</div>
-              <div class="en-name">${esc(it.en)||"—"}</div>
+              <div class="ru-name">${esc(it.ru)||"—"}${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>
+              <div class="en-name">${esc(it.en)||""}</div>
             </div>
           </div>
           <button class="icon-btn" data-copy="${esc(it.id)}" title="Копировать ID">⧉</button>
@@ -600,8 +605,7 @@ function openModal(idx){
   if(!it) return;
   $("modalIcon").innerHTML = it.iconUrl ? `<img src="${esc(it.iconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='${catIcon(it.cat)}'">` : catIcon(it.cat);
   $("modalTitle").textContent = it.ru || it.en || it.name;
-  $("modalSub").textContent = (it.en ? it.en+" • " : "") + it.name;
-  const extraEntries = Object.entries(it.extra||{});
+  $("modalSub").textContent = (it.en ? it.en+" • " : "") + it.name + (it.src ? " • " + it.src : "");
   $("modalBody").innerHTML = `
     <div class="detail-grid">
       <div class="detail-item"><div class="k">Русское название</div><div class="v">${esc(it.ru)||"—"}</div></div>
@@ -613,9 +617,10 @@ function openModal(idx){
       <div class="detail-item"><div class="k">Вес</div><div class="v">${fmtWeight(it.weight)}</div></div>
       <div class="detail-item"><div class="k">Категория</div><div class="v">${catIcon(it.cat)} ${esc(catName(it.cat))}</div></div>
       <div class="detail-item"><div class="k">Подкатегория</div><div class="v">🔎 ${esc(it.subLabel||"—")}</div></div>
-      <div class="detail-item"><div class="k">Примечание</div><div class="v" style="font-size:12px;font-weight:600;color:var(--muted)">${esc(it.note)||"—"}</div></div>
+      <div class="detail-item"><div class="k">Тип в файлах игры</div><div class="v"><span class="mono">${esc(it.xmlType)||"—"}</span></div></div>
+      <div class="detail-item"><div class="k">Файл игры</div><div class="v"><span class="mono">${esc(it.src)||"—"}</span></div></div>
     </div>
-    ${extraEntries.length ? `<div class="section-title">Характеристики</div><div class="kv">${extraEntries.map(([k,v])=>`<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("")}</div>` : `<div class="section-title">Характеристики</div><p style="color:var(--muted);font-size:13px">Дополнительных характеристик нет.</p>`}
+    ${(it.extra&&it.extra.length) ? extraGroups(it).map(gr=>`<div class="section-title">${gr.title} <span class="cnt" style="font-size:12px;color:var(--muted);font-weight:600">${gr.rows.length}</span></div><div class="kv">${gr.rows.map(f=>`<div class="kv-row"><span class="k">${esc(f.k)}</span><span class="v">${fmtField(f)}</span></div>`).join("")}</div>`).join("") : `<div class="section-title">Характеристики</div><p style="color:var(--muted);font-size:13px">У этого предмета в файлах игры нет характеристик.</p>`}
     <div class="modal-actions">
       <button class="btn btn-primary" id="mCopyId">⧉ Копировать ID</button>
       <button class="btn" id="mCopyName">⧉ Копировать Name</button>
@@ -767,6 +772,8 @@ searchClear.addEventListener("click", ()=>{ searchInput.value=""; state.query=""
 $("onlyPriced").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyPriced=this.classList.contains("active"); state.page=1; render(); });
 $("onlyWeighted").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWeighted=this.classList.contains("active"); state.page=1; render(); });
 $("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });
+$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });
+$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });
 
 $("sortSelect").addEventListener("change", e=>{ state.sort=e.target.value; state.page=1; render(); });
 $("perPageSelect").addEventListener("change", e=>{ state.perPage=parseInt(e.target.value,10); state.page=1; render(); });
@@ -778,9 +785,9 @@ $("viewToggle").addEventListener("click", function(){
 });
 
 function resetAll(){
-  state.cat=-1; state.acat=-1; state.aSub="all"; state.sub="all"; state.query=""; state.onlyPriced=false; state.onlyWeighted=false; state.onlyWithIcon=false; state.sort="default"; state.page=1;
+  state.cat=-1; state.acat=-1; state.aSub="all"; state.sub="all"; state.query=""; state.onlyPriced=false; state.onlyWeighted=false; state.onlyWithIcon=false; state.onlyDetailed=false; state.sort="default"; state.page=1;
   searchInput.value=""; searchClear.classList.remove("show");
-  $("onlyPriced").classList.remove("active"); $("onlyWeighted").classList.remove("active"); $("onlyWithIcon").classList.remove("active");
+  $("onlyPriced").classList.remove("active"); $("onlyWeighted").classList.remove("active"); $("onlyWithIcon").classList.remove("active"); $("onlyDetailed").classList.remove("active"); $("onlyDetailed").classList.remove("active");
   $("sortSelect").value="default";
   renderTabs(); renderSubcats(); render();
   showToast("Фильтры сброшены");
@@ -791,11 +798,11 @@ $("resetFilters").addEventListener("click", resetAll);
 $("exportBtn").addEventListener("click", ()=>{
   const filtered = getFiltered();
   if(!filtered.length){ showToast("Нечего экспортировать"); return; }
-  const headers = ["Русское название","Название в игре (EN)","Name","ID","ID иконки","URL иконки","Цена","Вес","Категория","Подкатегория","Примечание"];
+  const headers = ["Русское название","Название в игре (EN)","Name","ID","ID иконки","URL иконки","Цена","Вес","Категория","Подкатегория","Тип","Файл","Характеристики"];
   const escCsv = v => `"${String(v??"").replace(/"/g,'""')}"`;
   const lines = [headers.map(escCsv).join(",")];
   filtered.forEach(it=>{
-    lines.push([it.ru,it.en,it.name,it.id,it.icon||"",it.iconUrl||"",it.price??"",it.weight??"",catName(it.cat),it.subLabel||"",it.note].map(escCsv).join(","));
+    lines.push([it.ru,it.en,it.name,it.id,it.icon||"",it.iconUrl||"",it.price??"",it.weight??"",catName(it.cat),it.subLabel||"",it.xmlType||"",it.src||"",(it.extra||[]).map(f=>f.k+": "+f.v+(f.u?" "+f.u:"")).join("; ")].map(escCsv).join(","));
   });
   const blob = new Blob(["\ufeff"+lines.join("\r\n")], {type:"text/csv;charset=utf-8"});
   const url = URL.createObjectURL(blob);

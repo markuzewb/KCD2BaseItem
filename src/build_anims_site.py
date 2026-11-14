@@ -150,6 +150,82 @@ def main():
     s = s.replace('всего в базе: <b>${ITEMS.length.toLocaleString(\"ru-RU\")}</b>',
                   'всего в базе: <b>${dataList().length.toLocaleString(\"ru-RU\")} ${isAnims()?"анимаций":"предметов"}</b>', 1)
 
+    # фильтр «только с характеристиками» (был в сборке предметов)
+    s = s.replace('<button class="chip" id="onlyWithIcon">Только с иконкой</button>',
+                  '<button class="chip" id="onlyWithIcon">Только с иконкой</button>\n'
+                  '      <button class="chip" id="onlyDetailed">Только с характеристиками</button>', 1)
+    s = s.replace('$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });',
+                  '$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });\n'
+                  '$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });', 1)
+    s = s.replace('$("onlyWithIcon").classList.remove("active");',
+                  '$("onlyWithIcon").classList.remove("active"); $("onlyDetailed").classList.remove("active");', 1)
+    s = s.replace('state.onlyWithIcon=false; state.sort="default";',
+                  'state.onlyWithIcon=false; state.onlyDetailed=false; state.sort="default";', 1)
+
+    # счётчик характеристик в шапке
+    s = s.replace('Категорий: <b id="statCats">—</b></div>',
+                  'Категорий: <b id="statCats">—</b></div>\n'
+                  '      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>', 1)
+
+
+    # ---------- правки карточки предмета (перенесены из build_full.py) ----------
+    old_extra = ('${extraEntries.length ? `<div class="section-title">Характеристики</div>'
+                 '<div class="kv">${extraEntries.map(([k,v])=>`<div class="kv-row">'
+                 '<span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("")}'
+                 '</div>` : `<div class="section-title">Характеристики</div>'
+                 '<p style="color:var(--muted);font-size:13px">Дополнительных характеристик нет.</p>`}')
+    new_extra = ('${(it.extra&&it.extra.length) ? extraGroups(it).map(gr=>'
+                 '`<div class="section-title">${gr.title} <span class="cnt" style="font-size:12px;'
+                 'color:var(--muted);font-weight:600">${gr.rows.length}</span></div>'
+                 '<div class="kv">${gr.rows.map(f=>`<div class="kv-row"><span class="k">${esc(f.k)}</span>'
+                 '<span class="v">${fmtField(f)}</span></div>`).join("")}</div>`'
+                 ').join("") : `<div class="section-title">Характеристики</div>'
+                 '<p style="color:var(--muted);font-size:13px">У этого предмета в файлах игры нет характеристик.</p>`}')
+    if old_extra in s:
+        s = s.replace(old_extra, new_extra, 1)
+    else:
+        raise SystemExit("не найден блок характеристик в карточке предмета")
+    s = s.replace("  const extraEntries = Object.entries(it.extra||{});\n", "", 1)
+
+    # подзаголовок: EN + внутреннее имя + источник
+    s = s.replace('  $("modalSub").textContent = (it.en ? it.en+" • " : "") + it.name;',
+                  '  $("modalSub").textContent = (it.en ? it.en+" • " : "") + it.name'
+                  ' + (it.src ? " • " + it.src : "");', 1)
+
+    # плейсхолдер поиска
+    s = s.replace('placeholder="Поиск по русскому, английскому названию, Name или ID…  ( / )"',
+                  'placeholder="Поиск по названию, Name, ID и характеристикам…  ( / )"', 1)
+
+    # тип и файл игры вместо «Примечания»
+    s = s.replace('<div class="detail-item"><div class="k">Примечание</div><div class="v" style="font-size:12px;font-weight:600;color:var(--muted)">${esc(it.note)||"—"}</div></div>',
+                  '<div class="detail-item"><div class="k">Тип в файлах игры</div><div class="v"><span class="mono">${esc(it.xmlType)||"—"}</span></div></div>\n'
+                  '      <div class="detail-item"><div class="k">Файл игры</div><div class="v"><span class="mono">${esc(it.src)||"—"}</span></div></div>', 1)
+
+    # CSV: характеристики и источник
+    s = s.replace('"Категория","Подкатегория","Примечание"]',
+                  '"Категория","Подкатегория","Тип","Файл","Характеристики"]', 1)
+    s = s.replace('it.weight??"",catName(it.cat),it.subLabel||"",it.note]',
+                  'it.weight??"",catName(it.cat),it.subLabel||"",it.xmlType||"",it.src||"",'
+                  '(it.extra||[]).map(f=>f.k+": "+f.v+(f.u?" "+f.u:"")).join("; ")]', 1)
+
+    # пустая английская строка не должна показываться прочерком
+    s = s.replace('<div class="en-name">${esc(it.en)||"—"}</div>',
+                  '<div class="en-name">${esc(it.en)||""}</div>')
+
+    # бейдж «Ж» отделён пробелом
+    if "const FEMALE_BADGE" not in s:
+        s = s.replace("const FIELD_GROUPS = ",
+                      "const FEMALE_BADGE = " + js(BADGE_HTML) + ";\n"
+                      "const FIELD_GROUPS = ", 1)
+    if "const FEMALE_BADGE" not in s:
+        # FIELD_GROUPS вставляется в самом конце — ставим плашку отдельно
+        s = s.replace("function fmtPrice(p){",
+                      "const FEMALE_BADGE = " + js(BADGE_HTML) + ";\n"
+                      "function fmtPrice(p){", 1)
+    s = s.replace('<div class="ru-name">${esc(it.ru)||"—"}</div>',
+                  '<div class="ru-name">${esc(it.ru)||"—"}'
+                  '${it.female?"&nbsp;"+FEMALE_BADGE:""}</div>')
+
     # ------------------------------------------------- переключатель
     s = s.replace('<div class="header-stats">', MODE_SWITCH +
                   '    <div class="header-stats">', 1)
@@ -432,6 +508,23 @@ function openAnimModal(num){
     # счётчик в строке результата должен соответствовать разделу
     s = s.replace('всего в базе: <b>${ITEMS.length.toLocaleString(\"ru-RU\")}</b>',
                   'всего в базе: <b>${dataList().length.toLocaleString(\"ru-RU\")} ${isAnims()?"анимаций":"предметов"}</b>', 1)
+
+    # фильтр «только с характеристиками» (был в сборке предметов)
+    s = s.replace('<button class="chip" id="onlyWithIcon">Только с иконкой</button>',
+                  '<button class="chip" id="onlyWithIcon">Только с иконкой</button>\n'
+                  '      <button class="chip" id="onlyDetailed">Только с характеристиками</button>', 1)
+    s = s.replace('$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });',
+                  '$("onlyWithIcon").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyWithIcon=this.classList.contains("active"); state.page=1; render(); });\n'
+                  '$("onlyDetailed").addEventListener("click", function(){ this.classList.toggle("active"); state.onlyDetailed=this.classList.contains("active"); state.page=1; render(); });', 1)
+    s = s.replace('$("onlyWithIcon").classList.remove("active");',
+                  '$("onlyWithIcon").classList.remove("active"); $("onlyDetailed").classList.remove("active");', 1)
+    s = s.replace('state.onlyWithIcon=false; state.sort="default";',
+                  'state.onlyWithIcon=false; state.onlyDetailed=false; state.sort="default";', 1)
+
+    # счётчик характеристик в шапке
+    s = s.replace('Категорий: <b id="statCats">—</b></div>',
+                  'Категорий: <b id="statCats">—</b></div>\n'
+                  '      <div class="stat-pill">Характеристик: <b id="statFields">—</b></div>', 1)
 
     # ------------------------------------------------- переключатель
     MODE_JS = r"""
