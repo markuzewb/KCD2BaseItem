@@ -51,16 +51,18 @@ def unpack_anims(pack):
     ph, fa = pack["phase"], pack["fam"]
     fr, tr = pack["frag"], pack["trust"]
     pose = pack.get("pose") or []
+    kinds = pack.get("kind") or ["action", "static", "move"]
     out = []
     for row in pack["items"]:
         (num, ru_i, de_i, ph_i, fa_i, fr_i, tr_i, det, clip, cat_id, sub,
-         pose_i) = (row + [0])[:12]
+         pose_i, kind_i) = (row + [0])[:13]
         fam, fam_ru = fa[fa_i]
         out.append({
             "num": num, "ru": ru[ru_i], "desc": de[de_i], "phase": ph[ph_i],
             "fam": fam, "famRu": fam_ru, "frag": fr[fr_i], "trust": tr[tr_i],
             "det": det, "clip": clip, "catId": cat_id, "sub": sub,
             "pose": pose[pose_i] if pose_i < len(pose) else "",
+            "kind": kinds[kind_i] if kind_i < len(kinds) else "action",
             "cat": "", "id": clip,
         })
     return out
@@ -152,7 +154,7 @@ def main():
         "for(const r of p.items){const f=p.fam[r[4]];"
         "out.push({num:r[0],ru:p.ru[r[1]],desc:p.desc[r[2]],phase:p.phase[r[3]],"
         "fam:f[0],famRu:f[1],frag:p.frag[r[5]],trust:p.trust[r[6]],det:r[7],"
-        'clip:r[8],catId:r[9],sub:r[10],pose:p.pose[r[11]||0],cat:"",id:r[8]});}return out;})();\n')
+        'clip:r[8],catId:r[9],sub:r[10],pose:p.pose[r[11]||0],kind:(p.kind||[])[r[12]]||"action",cat:"",id:r[8]});}return out;})();\n')
     anim_js = ("const ANIM_PACK = " + js(anims_pack) + ";\n" + unpack_js
                + "const ACATS = " + js(acats) + ";\n"
                + "const ASUBS = " + js(asubs) + ";\n"
@@ -259,9 +261,59 @@ def main():
             <th id="thCol5">Вес</th>
             <th>Категория</th>""", 1)
 
+    # панели фильтров различаем по id, иначе querySelector(".filters")
+    # цепляет первую попавшуюся
+    s = s.replace('  <div class="filters">', '  <div class="filters" id="itemFilters">', 1)
+
+    # ------------------------------------- фильтры по типу для анимаций
+    ANIM_FILTERS = """
+  <!-- ФИЛЬТРЫ АНИМАЦИЙ -->
+  <div class="filters" id="animFilters" style="display:none">
+    <div class="filter-group">
+      <span class="filter-label">Тип</span>
+      <button class="chip" data-kind="static">Стойка</button>
+      <button class="chip" data-kind="move">Движение</button>
+      <button class="chip" data-kind="action">Действие</button>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Фаза</span>
+      <button class="chip" data-phase="Ожидание / поза">Ожидание</button>
+      <button class="chip" data-phase="Цикл">Цикл</button>
+      <button class="chip" data-phase="Вход / начало">Начало</button>
+      <button class="chip" data-phase="Действие / переход">Действие</button>
+      <button class="chip" data-phase="Выход / завершение">Завершение</button>
+      <button class="chip" data-phase="Вариант">Вариант</button>
+      <button class="chip" data-phase="Переход">Переход</button>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Поза</span>
+      <button class="chip" data-apose="stand">Стоя</button>
+      <button class="chip" data-apose="sit">Сидя</button>
+      <button class="chip" data-apose="lie">Лёжа</button>
+      <button class="chip" data-apose="sleep">Сон</button>
+      <button class="chip" data-apose="kneel">На коленях</button>
+      <button class="chip" data-apose="crouch">Присев</button>
+      <button class="chip" data-apose="horse">Верхом</button>
+      <button class="chip" data-apose="lean">Опираясь</button>
+    </div>
+    <div class="result-info" id="resultInfo2"></div>
+  </div>
+"""
+    if 'id="animFilters"' not in s:
+        s = s.replace("  <!-- FILTERS -->", ANIM_FILTERS + "  <!-- FILTERS -->", 1)
+    if 'id="animFilters"' not in s:
+        raise SystemExit("не найден блок фильтров")
+
     # ------------------------------------------------- переключатель
     s = s.replace('<div class="header-stats">', MODE_SWITCH +
                   '    <div class="header-stats">', 1)
+
+    # счётчик «Подходит» рядом с фильтрами анимаций
+    s = s.replace(
+        'resultInfo.innerHTML = `Показано <b>${pageItems.length}</b> из <b>${filtered.length.toLocaleString(\"ru-RU\")}</b> &nbsp;•&nbsp; всего в базе: <b>${dataList().length.toLocaleString(\"ru-RU\")} ${isAnims()?"анимаций":"предметов"}</b>`;',
+        'resultInfo.innerHTML = `Показано <b>${pageItems.length}</b> из <b>${filtered.length.toLocaleString(\"ru-RU\")}</b> &nbsp;•&nbsp; всего в базе: <b>${dataList().length.toLocaleString(\"ru-RU\")} ${isAnims()?"анимаций":"предметов"}</b>`;\n'
+        '  const ri2 = $("resultInfo2");\n'
+        '  if(ri2) ri2.innerHTML = isAnims() ? `Подходит: <b>${filtered.length.toLocaleString("ru-RU")}</b>` : "";', 1)
 
     # ------------------------------------------- вспомогательные функции
     s = s.replace("function fmtPrice(p){", GROUPS_JS + """
@@ -285,7 +337,10 @@ function fmtPrice(p){""", 1)
   mode: "items", // items | anims''', 1)
     s = s.replace('''  cat: -1, // -1 = all''', '''  cat: -1, // -1 = все предметы
   acat: -1, // -1 = все анимации
-  aSub: "all",''', 1)
+  aSub: "all",
+  aKinds: [],    // выбранные типы: static / move / action (пусто = все)
+  aPhases: [],   // выбранные фазы (пусто = все)
+  aPoses: [],    // выбранные позы (пусто = все)''', 1)
     s = s.replace('''function catName(catId){''', '''function isAnims(){ return state.mode === "anims"; }
 function dataList(){ return isAnims() ? ANIMS : ITEMS; }
 function catList(){ return isAnims() ? ACATS : CATEGORIES; }
@@ -400,6 +455,12 @@ function getFiltered(){
   const poseTab = anims && cid>=0 && ACATS[cid] && ACATS[cid].pose;
   let list = dataList().filter(it=>{
     if(cid!==-1 && !poseTab && (anims ? it.catId : it.cat)!==cid) return false;
+    // фильтры по типу / фазе / позе работают только в анимациях
+    if(anims){
+      if(state.aKinds.length && !state.aKinds.includes(it.kind)) return false;
+      if(state.aPhases.length && !state.aPhases.includes((it.phase||"").trim())) return false;
+      if(state.aPoses.length && !state.aPoses.includes(it.pose || "none")) return false;
+    }
     // во вкладке «Позы» подкатегория — это поза + статично/действие
     if(sub!=="all"){
       if(poseTab){ if(poseKeyOf(it)!==sub) return false; }
@@ -626,6 +687,22 @@ function applyMode(){
   th("thCol5", anims ? "Семейство" : "Вес");
   $("modeCntItems").textContent = ITEMS.length.toLocaleString("ru-RU");
   $("modeCntAnims").textContent = ACOUNT.toLocaleString("ru-RU");
+  // фильтры по типу/фазе/позе есть только у анимаций
+  const af = $("animFilters");
+  if(af) af.style.display = anims ? "" : "none";
+  // .filters — панель предметов, #animFilters — панель анимаций:
+  // прячем только чужую панель, свою не трогаем
+  const itemFlt = $("itemFilters");
+  if(itemFlt) itemFlt.style.display = anims ? "none" : "";
+  if(!anims){
+    state.aKinds.length = 0; state.aPhases.length = 0; state.aPoses.length = 0;
+    document.querySelectorAll("#animFilters .chip.active").forEach(c=>c.classList.remove("active"));
+  }
+  const ri2 = $("resultInfo2");
+  if(ri2 && anims){
+    const f = getFiltered().length;
+    ri2.innerHTML = `<b>${f.toLocaleString("ru-RU")}</b> ${plural(f,"анимация","анимации","анимаций")}`;
+  }
   const lbl = document.querySelector(".tabs-label span");
   if(lbl) lbl.textContent = anims ? "🎬 Категории анимаций" : "📂 Категории предметов";
   document.querySelectorAll(".stat-pill").forEach(p=>{
@@ -662,6 +739,56 @@ function renderStats(){
 """
     s = s.replace("/* INIT */", MODE_JS + "\n/* INIT */", 1)
 
+    # ------------------------------- обработчики фильтров анимаций
+    FILTER_JS = """
+/* -------------------------------- ФИЛЬТРЫ АНИМАЦИЙ: тип / фаза / поза */
+function toggleIn(arr, v){
+  const i = arr.indexOf(v);
+  if(i>=0) arr.splice(i,1); else arr.push(v);
+  return arr;
+}
+function applyAnimFilterCount(){
+  const ri2 = $("resultInfo2");
+  if(!ri2) return;
+  const f = getFiltered().length;
+  ri2.innerHTML = isAnims()
+    ? `Подходит: <b>${f.toLocaleString("ru-RU")}</b> из <b>${ACOUNT.toLocaleString("ru-RU")}</b>`
+    : "";
+}
+function bindAnimFilters(){
+  const box = $("animFilters");
+  if(!box || box._bound) return;
+  box._bound = true;
+  const bind = (attr, arr)=>{
+    box.querySelectorAll("[data-"+attr+"]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        toggleIn(arr, b.dataset[attr==="apose"?"apose":attr]);
+        b.classList.toggle("active");
+        state.page = 1; render();
+      });
+    });
+  };
+  bind("kind", state.aKinds);
+  bind("phase", state.aPhases);
+  bind("apose", state.aPoses);
+}
+function clearAnimFilters(){
+  // именно length = 0: обработчики держат ссылку на массив,
+  // замена на новый массив их бы отвязала
+  state.aKinds.length = 0; state.aPhases.length = 0; state.aPoses.length = 0;
+  document.querySelectorAll("#animFilters .chip.active").forEach(c=>c.classList.remove("active"));
+}
+"""
+    if "function bindAnimFilters" not in s:
+        s = s.replace("/* INIT */", FILTER_JS + "\n/* INIT */", 1)
+    if "function bindAnimFilters" not in s:
+        raise SystemExit("не вставились обработчики фильтров")
+    if "bindAnimFilters();" not in s:
+        # вызов ставим последней строкой перед INIT, чтобы DOM уже был готов
+        s = s.replace("/* INIT */", "bindAnimFilters();\n/* INIT */", 1)
+    if "bindAnimFilters();" not in s:
+        raise SystemExit("не вставился вызов bindAnimFilters")
+
     # инициализация: счётчики режимов и статистика
     s = s.replace('$("statTotal").textContent = ITEMS.length.toLocaleString("ru-RU");\n$("statCats").textContent = CATEGORIES.length;',
                   'applyMode(); renderStats();', 1)
@@ -669,7 +796,8 @@ function renderStats(){
                   '', 1)
     # resetAll должен уважать режим
     s = s.replace('state.cat=-1; state.sub="all"; state.query="";',
-                  'state.cat=-1; state.acat=-1; state.aSub="all"; state.sub="all"; state.query="";', 1)
+                  'state.cat=-1; state.acat=-1; state.aSub="all"; state.sub="all"; state.query="";'
+                  ' if(typeof clearAnimFilters==="function") clearAnimFilters();', 1)
     open(OUT, "w", encoding="utf-8").write(s)
     print("каркас записан")
 
