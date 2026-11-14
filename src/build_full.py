@@ -174,6 +174,10 @@ def main():
                   'it.weight??"",catName(it.cat),it.subLabel||"",it.xmlType||"",it.src||"",'
                   '(it.extra||[]).map(f=>f.k+": "+f.v+(f.u?" "+f.u:"")).join("; ")]', 1)
 
+    # --- пустая английская строка не должна показываться прочерком ---
+    s = s.replace('<div class="en-name">${esc(it.en)||"—"}</div>',
+                  '<div class="en-name">${esc(it.en)||""}</div>')
+
     # --- бейдж «Ж» ---
     old_name = '<div class="ru-name">${esc(it.ru)||"—"}</div>'
     badge = ("<span class='badge' style='background:rgba(236,72,153,.15);"
